@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #0a0b0d;
+  --color-surface: #111317;
+  --color-surface-2: #15171c;
+  --color-input: #1b1d23;
+  --color-accent: #e0561e;
+  --color-accent-hover: #f26128;
+  --color-footer: #08090c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #ffffff;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: #ffffff;
+}
+
+.font-display {
+  font-family: var(--font-unbounded), sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-jakarta), sans-serif;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
