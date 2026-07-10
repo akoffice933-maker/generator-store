@@ -3,8 +3,16 @@ import { cookies } from "next/headers";
 
 export const SESSION_COOKIE = "gs_session";
 
-const secretKey = process.env.AUTH_SECRET || "generator-store-dev-secret-change-me";
-const encodedKey = new TextEncoder().encode(secretKey);
+const secretKey = process.env.AUTH_SECRET;
+if (!secretKey) {
+  // Без явно заданного секрета в проде токены сессий подписывались бы
+  // публично известной строкой из исходников — это позволяло бы подделать
+  // любую сессию. Поэтому в production падаем сразу при старте.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET is required in production");
+  }
+}
+const encodedKey = new TextEncoder().encode(secretKey || "generator-store-dev-secret-change-me");
 
 export type SessionPayload = {
   userId: number;
