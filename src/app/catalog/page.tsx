@@ -8,6 +8,8 @@ import CatalogFilters from "./CatalogFilters";
 import CompareBar from "@/components/CompareBar";
 import { PackageSearch } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Каталог генераторов — Generator Store",
   description: "Бензиновые, дизельные, газовые и инверторные генераторы. Розница и опт, фильтры по мощности, фазности и наличию.",
