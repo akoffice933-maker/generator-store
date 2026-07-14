@@ -1,3 +1,5 @@
+import { customAlphabet } from "nanoid";
+
 export function formatPrice(value: string | number) {
   const num = typeof value === "string" ? Number(value) : value;
   return new Intl.NumberFormat("ru-RU", {
@@ -12,13 +14,14 @@ export function formatDate(value: string | Date) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric" }).format(date);
 }
 
+const orderSuffix = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 10);
+
 export function generateOrderNumber() {
   const now = new Date();
   const y = now.getFullYear().toString().slice(-2);
   const m = (now.getMonth() + 1).toString().padStart(2, "0");
   const d = now.getDate().toString().padStart(2, "0");
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `GS-${y}${m}${d}-${rand}`;
+  return `GS-${y}${m}${d}-${orderSuffix()}`;
 }
 
 export const typeLabels: Record<string, string> = {

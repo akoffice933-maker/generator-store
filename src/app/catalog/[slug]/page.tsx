@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/products";
+import { getCurrentPricingTier } from "@/lib/pricing";
 import ProductActions from "./ProductActions";
 import ProductCard from "@/components/ProductCard";
 import { formatDate, startTypeLabels, typeLabels } from "@/lib/format";
@@ -21,7 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getProductBySlug(slug);
+  const pricingTier = await getCurrentPricingTier();
+  const data = await getProductBySlug(slug, pricingTier);
   if (!data) notFound();
 
   const { product, reviews, related } = data;
@@ -37,7 +39,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     offers: {
       "@type": "Offer",
       priceCurrency: "RUB",
-      price: product.priceRetail,
+      price: product.priceWholesale ?? product.priceRetail,
       availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     },
     aggregateRating:
@@ -104,7 +106,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               name={product.name}
               image={image}
               priceRetail={Number(product.priceRetail)}
-              priceWholesale={Number(product.priceWholesale)}
+              priceWholesale={product.priceWholesale ? Number(product.priceWholesale) : null}
               stock={product.stock}
             />
           </div>

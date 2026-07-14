@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { db } from "@/db";
 import { brands } from "@/db/schema";
 import { getProducts } from "@/lib/products";
+import { getCurrentPricingTier } from "@/lib/pricing";
 import ProductCard from "@/components/ProductCard";
 import CatalogFilters from "./CatalogFilters";
 import CompareBar from "@/components/CompareBar";
@@ -21,19 +22,26 @@ export default async function CatalogPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
-  const brandList = await db.select().from(brands);
+  const [brandList, pricingTier] = await Promise.all([db.select().from(brands), getCurrentPricingTier()]);
+
+  const type = ["gasoline", "diesel", "gas", "inverter"].includes(sp.type ?? "")
+    ? sp.type as "gasoline" | "diesel" | "gas" | "inverter"
+    : undefined;
+  const sort = ["price_asc", "price_desc", "power", "popular"].includes(sp.sort ?? "")
+    ? sp.sort as "price_asc" | "price_desc" | "power" | "popular"
+    : undefined;
 
   const { items, total, page, totalPages } = await getProducts({
     search: sp.search,
-    type: sp.type,
+    type,
     brandSlug: sp.brand,
     minPower: sp.minPower ? Number(sp.minPower) : undefined,
     maxPower: sp.maxPower ? Number(sp.maxPower) : undefined,
     phases: sp.phases ? Number(sp.phases) : undefined,
     inStockOnly: sp.inStock === "1",
-    sort: sp.sort,
+    sort,
     page: sp.page ? Number(sp.page) : 1,
-  });
+  }, pricingTier);
 
   const buildPageHref = (p: number) => {
     const params = new URLSearchParams(sp as Record<string, string>);

@@ -59,3 +59,17 @@ body {
 input[type="range"] {
   accent-color: var(--color-accent);
 }
+
+.field {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  background: var(--color-input);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--color-accent);
+}

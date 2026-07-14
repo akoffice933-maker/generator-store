@@ -31,7 +31,7 @@ const APPLIANCES: Appliance[] = [
 export default function PowerCalculator() {
   const [selected, setSelected] = useState<Record<string, boolean>>({ fridge: true, lighting: true, tv: true });
   const [products, setProducts] = useState<ProductListItem[]>([]);
-  const { segment, addToCart } = useStore();
+  const { addToCart } = useStore();
 
   useEffect(() => {
     fetch("/api/products?pageSize=100&sort=power")
@@ -59,7 +59,7 @@ export default function PowerCalculator() {
     if (products.length === 0 || runningLoad === 0) return null;
     const suitable = products
       .filter((p) => Number(p.powerKw) >= recommendedKw)
-      .sort((a, b) => Number(a.powerKw) - Number(b.powerKw) || Number(a.priceRetail) - Number(b.priceRetail));
+      .sort((a, b) => Number(a.powerKw) - Number(b.powerKw) || Number(a.priceWholesale ?? a.priceRetail) - Number(b.priceWholesale ?? b.priceRetail));
     return suitable[0] || products[products.length - 1];
   }, [products, recommendedKw, runningLoad]);
 
@@ -118,7 +118,7 @@ export default function PowerCalculator() {
                 </Link>
                 <p className="mt-1 flex items-center gap-1 text-xs text-gray-400"><Zap size={12} /> {recommendation.powerKw} кВт</p>
                 <p className="mt-1 font-display text-base font-bold text-[#E0561E]">
-                  {formatPrice(segment === "b2b" ? recommendation.priceWholesale : recommendation.priceRetail)}
+                  {formatPrice(recommendation.priceWholesale ?? recommendation.priceRetail)}
                 </p>
               </div>
             </div>
@@ -129,8 +129,7 @@ export default function PowerCalculator() {
                   slug: recommendation.slug,
                   name: recommendation.name,
                   image: recommendation.images?.[0] || null,
-                  priceRetail: Number(recommendation.priceRetail),
-                  priceWholesale: Number(recommendation.priceWholesale),
+                  unitPrice: Number(recommendation.priceWholesale ?? recommendation.priceRetail),
                   stock: recommendation.stock,
                 })
               }

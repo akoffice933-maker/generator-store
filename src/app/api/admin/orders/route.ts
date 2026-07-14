@@ -8,7 +8,7 @@ export async function GET() {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const rows = await db.select().from(orders).orderBy(desc(orders.createdAt));
+  const rows = await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(100);
   const orderIds = rows.map((r) => r.id);
   const items = orderIds.length
     ? await db.select().from(orderItems).where(sql`${orderItems.orderId} = ANY(${orderIds})`)

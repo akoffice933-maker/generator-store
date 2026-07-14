@@ -3,40 +3,36 @@ import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createSessionToken, setSessionCookie } from "@/lib/auth";
+import { canUseWholesale, createSessionToken, setSessionCookie } from "@/lib/auth";
+import { readJsonBody, requireSameOrigin } from "@/lib/http";
+import { rateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
 
 const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().trim().email().max(254),
+  password: z.string().min(1).max(128),
 });
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Введите корректный e-mail и пароль" }, { status: 400 });
-  }
-  const { email, password } = parsed.data;
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
+  const body = await readJsonBody(req);
+  if (!body.ok) return body.response;
+  const parsed = schema.safeParse(body.data);
+  if (!parsed.success) return NextResponse.json({ error: "Неверный e-mail или пароль" }, { status: 401 });
 
-  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  const user = rows[0];
-  if (!user) {
-    return NextResponse.json({ error: "Неверный e-mail или пароль" }, { status: 401 });
-  }
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    return NextResponse.json({ error: "Неверный e-mail или пароль" }, { status: 401 });
-  }
+  const email = parsed.data.email.toLowerCase();
+  const limited = rateLimit(req, { bucket: "auth-login", identifier: email, limit: 10, windowMs: 15 * 60 * 1000 });
+  if (limited) return limited;
 
-  const token = await createSessionToken({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    segment: user.segment,
-  });
-  await setSessionCookie(token);
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const valid = user ? await bcrypt.compare(parsed.data.password, user.passwordHash) : false;
+  if (!user || !valid) return NextResponse.json({ error: "Неверный e-mail или пароль" }, { status: 401 });
 
-  return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, segment: user.segment } });
+  const session = {
+    userId: user.id, email: user.email, name: user.name, role: user.role,
+    segment: user.segment, b2bStatus: user.b2bStatus, sessionVersion: user.sessionVersion,
+  } as const;
+  await setSessionCookie(await createSessionToken(session));
+  return NextResponse.json({ user: { ...session, canUseWholesale: canUseWholesale(session) } });
 }

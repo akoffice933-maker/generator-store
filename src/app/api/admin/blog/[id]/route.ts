@@ -3,34 +3,25 @@ import { db } from "@/db";
 import { blogPosts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
+import { parsePositiveInt, readJsonBody, requireSameOrigin } from "@/lib/http";
 import { z } from "zod";
 
-const schema = z.object({
-  slug: z.string().min(2),
-  title: z.string().min(2),
-  excerpt: z.string().min(2),
-  content: z.string().min(2),
-  coverImage: z.string().optional(),
-  category: z.string().default("Статьи"),
-  readTimeMinutes: z.number().int().min(1).default(5),
-  tags: z.array(z.string()).default([]),
-});
+const schema = z.object({ slug: z.string().trim().min(2).max(160), title: z.string().trim().min(2).max(250), excerpt: z.string().trim().min(2).max(500), content: z.string().trim().min(2).max(50_000), coverImage: z.string().url().max(2_000).optional().or(z.literal("")), category: z.string().trim().min(1).max(100).default("Статьи"), readTimeMinutes: z.number().int().min(1).max(240).default(5), tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]) });
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireStaff();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id } = await params;
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Некорректные данные" }, { status: 400 });
-  const [post] = await db.update(blogPosts).set(parsed.data).where(eq(blogPosts.id, Number(id))).returning();
-  return NextResponse.json({ post });
+  const originError = requireSameOrigin(req); if (originError) return originError;
+  if (!await requireStaff()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const postId = parsePositiveInt((await params).id); if (!postId) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  const body = await readJsonBody(req); if (!body.ok) return body.response;
+  const parsed = schema.safeParse(body.data); if (!parsed.success) return NextResponse.json({ error: "Некорректные данные" }, { status: 400 });
+  const [post] = await db.update(blogPosts).set({ ...parsed.data, coverImage: parsed.data.coverImage || null }).where(eq(blogPosts.id, postId)).returning();
+  return post ? NextResponse.json({ post }) : NextResponse.json({ error: "Не найдено" }, { status: 404 });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireStaff();
-  if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id } = await params;
-  await db.delete(blogPosts).where(eq(blogPosts.id, Number(id)));
-  return NextResponse.json({ ok: true });
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const originError = requireSameOrigin(req); if (originError) return originError;
+  if (!await requireStaff()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const postId = parsePositiveInt((await params).id); if (!postId) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  const [deleted] = await db.delete(blogPosts).where(eq(blogPosts.id, postId)).returning({ id: blogPosts.id });
+  return deleted ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Не найдено" }, { status: 404 });
 }

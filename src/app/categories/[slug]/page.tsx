@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getProducts } from "@/lib/products";
+import { getCurrentPricingTier } from "@/lib/pricing";
 import ProductCard from "@/components/ProductCard";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -22,7 +23,8 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const category = rows[0];
   if (!category) notFound();
 
-  const { items, total } = await getProducts({ categorySlug: slug, pageSize: 24 });
+  const pricingTier = await getCurrentPricingTier();
+  const { items, total } = await getProducts({ categorySlug: slug, pageSize: 24 }, pricingTier);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

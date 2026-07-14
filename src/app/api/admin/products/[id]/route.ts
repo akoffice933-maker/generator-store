@@ -4,6 +4,7 @@ import { products } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
+import { parsePositiveInt, readJsonBody, requireSameOrigin } from "@/lib/http";
 
 const productSchema = z.object({
   slug: z.string().min(2),
@@ -27,12 +28,16 @@ const productSchema = z.object({
 });
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
-
-  const body = await req.json().catch(() => null);
-  const parsed = productSchema.safeParse(body);
+  const productId = parsePositiveInt(id);
+  if (!productId) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  const body = await readJsonBody(req);
+  if (!body.ok) return body.response;
+  const parsed = productSchema.safeParse(body.data);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Некорректные данные" }, { status: 400 });
   }
@@ -60,16 +65,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       description: data.description,
       featured: data.featured,
     })
-    .where(eq(products.id, Number(id)))
+    .where(eq(products.id, productId))
     .returning();
 
+  if (!product) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
   return NextResponse.json({ product });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
-  await db.delete(products).where(eq(products.id, Number(id)));
+  const productId = parsePositiveInt(id);
+  if (!productId) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  const [deleted] = await db.delete(products).where(eq(products.id, productId)).returning({ id: products.id });
+  if (!deleted) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

@@ -4,6 +4,6 @@ import { blogPosts } from "@/db/schema";
 import { desc } from "drizzle-orm";
 
 export async function GET() {
-  const rows = await db.select().from(blogPosts).orderBy(desc(blogPosts.publishedAt));
+  const rows = await db.select().from(blogPosts).orderBy(desc(blogPosts.publishedAt)).limit(100);
   return NextResponse.json({ items: rows });
 }
