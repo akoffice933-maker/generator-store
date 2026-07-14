@@ -4,6 +4,7 @@ import { products, brands, categories } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
+import { requireSameOrigin } from "@/lib/http";
 
 const productSchema = z.object({
   slug: z.string().min(2),
@@ -48,7 +49,7 @@ export async function GET() {
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
     .leftJoin(categories, eq(products.categoryId, categories.id))
-    .orderBy(desc(products.id));
+    .orderBy(desc(products.id)).limit(200);
 
   const brandList = await db.select().from(brands);
   const categoryList = await db.select().from(categories);
@@ -57,6 +58,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

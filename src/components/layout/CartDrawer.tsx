@@ -7,11 +7,11 @@ import { useStore } from "@/components/providers";
 import { formatPrice } from "@/lib/format";
 
 export default function CartDrawer() {
-  const { cart, cartOpen, setCartOpen, updateQty, removeFromCart, segment, cartTotal } = useStore();
+  const { cart, cartOpen, setCartOpen, updateQty, removeFromCart, cartTotal } = useStore();
 
   if (!cartOpen) return null;
 
-  const total = cartTotal(segment);
+  const total = cartTotal;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -51,7 +51,7 @@ export default function CartDrawer() {
                       {item.name}
                     </Link>
                     <p className="mt-1 text-sm font-bold text-[#E0561E]">
-                      {formatPrice(segment === "b2b" ? item.priceWholesale : item.priceRetail)}
+                      {formatPrice(item.unitPrice)}
                     </p>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2 rounded-full border border-white/10 px-1">
@@ -77,7 +77,7 @@ export default function CartDrawer() {
         {cart.length > 0 && (
           <div className="border-t border-white/10 px-5 py-4">
             <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-gray-400">Итого ({segment === "b2b" ? "опт" : "розница"})</span>
+              <span className="text-gray-400">Предварительный итог</span>
               <span className="font-display text-lg font-bold">{formatPrice(total)}</span>
             </div>
             <Link
@@ -85,7 +85,7 @@ export default function CartDrawer() {
               onClick={() => setCartOpen(false)}
               className="block w-full rounded-full bg-[#E0561E] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#F26128]"
             >
-              {segment === "b2b" ? "Оформить по опт-тарифу" : "Оформить заказ"}
+              Оформить заказ
             </Link>
           </div>
         )}

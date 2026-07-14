@@ -21,6 +21,6 @@ export async function GET() {
       createdAt: users.createdAt,
     })
     .from(users)
-    .orderBy(desc(users.createdAt));
+    .orderBy(desc(users.createdAt)).limit(100);
   return NextResponse.json({ items: rows });
 }

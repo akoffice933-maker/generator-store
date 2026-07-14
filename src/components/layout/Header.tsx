@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Menu, X, Heart, GitCompare, ShoppingCart, User, Zap, Search } from "lucide-react";
 import { useStore } from "@/components/providers";
 import { cn } from "@/lib/cn";
@@ -20,7 +20,7 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { segment, setSegment, favorites, compare, cartCount, setCartOpen, user } = useStore();
-  const pathname = usePathname();
+  const hasWholesaleAccess = user?.canUseWholesale ?? false;
   const router = useRouter();
   const [search, setSearch] = useState("");
 
@@ -31,9 +31,6 @@ export default function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   function onSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,10 +91,12 @@ export default function Header() {
             Физлицо
           </button>
           <button
+            disabled={!hasWholesaleAccess}
+            title={hasWholesaleAccess ? "Показывать B2B-цены" : "B2B-цены доступны после одобрения заявки"}
             onClick={() => setSegment("b2b")}
             className={cn(
               "rounded-full px-3 py-1.5 transition-colors",
-              segment === "b2b" ? "bg-[#E0561E] text-white" : "text-gray-400 hover:text-white"
+              segment === "b2b" && hasWholesaleAccess ? "bg-[#E0561E] text-white" : "text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             )}
           >
             Бизнес
@@ -172,15 +171,17 @@ export default function Header() {
               Физлицо
             </button>
             <button
-              onClick={() => setSegment("b2b")}
-              className={cn("flex-1 rounded-full px-3 py-2", segment === "b2b" ? "bg-[#E0561E] text-white" : "text-gray-400")}
+              disabled={!hasWholesaleAccess}
+            title={hasWholesaleAccess ? "Показывать B2B-цены" : "B2B-цены доступны после одобрения заявки"}
+            onClick={() => setSegment("b2b")}
+              className={cn("flex-1 rounded-full px-3 py-2 disabled:opacity-50", segment === "b2b" && hasWholesaleAccess ? "bg-[#E0561E] text-white" : "text-gray-400")}
             >
               Бизнес
             </button>
           </div>
           <nav className="flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/5">
+              <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-white/5">
                 {link.label}
               </Link>
             ))}

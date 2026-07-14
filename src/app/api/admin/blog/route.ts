@@ -4,6 +4,7 @@ import { blogPosts } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
+import { requireSameOrigin } from "@/lib/http";
 
 const schema = z.object({
   slug: z.string().min(2),
@@ -19,11 +20,13 @@ const schema = z.object({
 export async function GET() {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const rows = await db.select().from(blogPosts).orderBy(desc(blogPosts.publishedAt));
+  const rows = await db.select().from(blogPosts).orderBy(desc(blogPosts.publishedAt)).limit(100);
   return NextResponse.json({ items: rows });
 }
 
 export async function POST(req: NextRequest) {
+  const originError = requireSameOrigin(req);
+  if (originError) return originError;
   const session = await requireStaff();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json().catch(() => null);

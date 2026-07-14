@@ -4,6 +4,6 @@ import { diagnosticSymptoms } from "@/db/schema";
 import { asc } from "drizzle-orm";
 
 export async function GET() {
-  const rows = await db.select().from(diagnosticSymptoms).orderBy(asc(diagnosticSymptoms.sortOrder));
+  const rows = await db.select().from(diagnosticSymptoms).orderBy(asc(diagnosticSymptoms.sortOrder)).limit(100);
   return NextResponse.json({ items: rows });
 }

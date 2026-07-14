@@ -10,6 +10,7 @@ import {
   jsonb,
   smallint,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["customer", "manager", "admin"]);
@@ -42,6 +43,7 @@ export const users = pgTable("users", {
   companyName: text("company_name"),
   inn: text("inn"),
   b2bStatus: b2bStatusEnum("b2b_status").notNull().default("none"),
+  sessionVersion: integer("session_version").notNull().default(0),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => ({
   emailIdx: uniqueIndex("users_email_idx").on(table.email),
@@ -93,6 +95,11 @@ export const products = pgTable("products", {
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => ({
   slugIdx: uniqueIndex("products_slug_idx").on(table.slug),
+  typeIdx: index("products_type_idx").on(table.type),
+  brandIdx: index("products_brand_id_idx").on(table.brandId),
+  categoryIdx: index("products_category_id_idx").on(table.categoryId),
+  stockIdx: index("products_stock_idx").on(table.stock),
+  featuredIdx: index("products_featured_idx").on(table.featured),
 }));
 
 export const reviews = pgTable("reviews", {
@@ -102,7 +109,9 @@ export const reviews = pgTable("reviews", {
   rating: smallint("rating").notNull(),
   text: text("text").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table) => ({
+  productCreatedIdx: index("reviews_product_created_at_idx").on(table.productId, table.createdAt),
+}));
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -119,9 +128,17 @@ export const orders = pgTable("orders", {
   paymentMethod: paymentMethodEnum("payment_method").notNull().default("card"),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
   comment: text("comment"),
+  clientRequestId: text("client_request_id"),
+  paymentProvider: text("payment_provider"),
+  paymentId: text("payment_id"),
+  paidAt: timestamp("paid_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => ({
   orderNumberIdx: uniqueIndex("orders_order_number_idx").on(table.orderNumber),
+  clientRequestIdx: uniqueIndex("orders_client_request_id_idx").on(table.clientRequestId),
+  userCreatedIdx: index("orders_user_created_at_idx").on(table.userId, table.createdAt),
+  createdIdx: index("orders_created_at_idx").on(table.createdAt),
+  paymentIdIdx: uniqueIndex("orders_payment_id_idx").on(table.paymentId),
 }));
 
 export const orderItems = pgTable("order_items", {
@@ -131,7 +148,9 @@ export const orderItems = pgTable("order_items", {
   productName: text("product_name").notNull(),
   qty: integer("qty").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
-});
+}, (table) => ({
+  orderIdx: index("order_items_order_id_idx").on(table.orderId),
+}));
 
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
@@ -140,7 +159,9 @@ export const invoices = pgTable("invoices", {
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   status: invoiceStatusEnum("status").notNull().default("issued"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table) => ({
+  orderIdx: index("invoices_order_id_idx").on(table.orderId),
+}));
 
 export const blogPosts = pgTable("blog_posts", {
   id: serial("id").primaryKey(),
@@ -155,6 +176,7 @@ export const blogPosts = pgTable("blog_posts", {
   publishedAt: timestamp("published_at", { mode: "date" }).notNull().defaultNow(),
 }, (table) => ({
   slugIdx: uniqueIndex("blog_posts_slug_idx").on(table.slug),
+  publishedIdx: index("blog_posts_published_at_idx").on(table.publishedAt),
 }));
 
 export const leads = pgTable("leads", {
@@ -168,7 +190,10 @@ export const leads = pgTable("leads", {
   comment: text("comment"),
   status: leadStatusEnum("status").notNull().default("new"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-});
+}, (table) => ({
+  createdIdx: index("leads_created_at_idx").on(table.createdAt),
+  statusCreatedIdx: index("leads_status_created_at_idx").on(table.status, table.createdAt),
+}));
 
 export const warranties = pgTable("warranties", {
   id: serial("id").primaryKey(),
@@ -179,7 +204,9 @@ export const warranties = pgTable("warranties", {
   activatedAt: timestamp("activated_at", { mode: "date" }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
   status: warrantyStatusEnum("status").notNull().default("active"),
-});
+}, (table) => ({
+  serialNumberIdx: uniqueIndex("warranties_serial_number_idx").on(table.serialNumber),
+}));
 
 export const diagnosticSymptoms = pgTable("diagnostic_symptoms", {
   id: serial("id").primaryKey(),

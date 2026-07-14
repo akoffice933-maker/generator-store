@@ -1,12 +1,16 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "generator-store",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm run build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/seed.sql"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -16,7 +20,7 @@
     "jose": "^6.2.3",
     "lucide-react": "^1.24.0",
     "nanoid": "^5.1.16",
-    "next": "16.2.6",
+    "next": "16.2.10",
     "pg": "8.20.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
@@ -32,7 +36,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "postcss": "8.5.8",
+    "postcss": "8.5.19",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3"
   }

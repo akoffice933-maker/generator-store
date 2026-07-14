@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, ShieldCheck, Truck, Wrench, BadgePercent, Star } from "lucide-react";
 import { getProducts } from "@/lib/products";
+import { getCurrentPricingTier } from "@/lib/pricing";
 import { db } from "@/db";
 import { blogPosts } from "@/db/schema";
 import { desc } from "drizzle-orm";
@@ -12,7 +13,8 @@ import PowerCalculator from "@/components/home/PowerCalculator";
 import { formatDate } from "@/lib/format";
 
 export default async function HomePage() {
-  const { items: featured } = await getProducts({ pageSize: 8, sort: "popular" });
+  const pricingTier = await getCurrentPricingTier();
+  const { items: featured } = await getProducts({ pageSize: 8, sort: "popular" }, pricingTier);
   const posts = await db.select().from(blogPosts).orderBy(desc(blogPosts.publishedAt)).limit(3);
 
   return (
