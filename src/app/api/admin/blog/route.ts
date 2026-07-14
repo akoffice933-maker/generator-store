@@ -5,6 +5,7 @@ import { desc } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
 import { requireSameOrigin } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 
 const schema = z.object({
   slug: z.string().min(2),
@@ -33,5 +34,6 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Некорректные данные" }, { status: 400 });
   const [post] = await db.insert(blogPosts).values(parsed.data).returning();
+  await writeAuditLog(session, { action: "blog_post.create", entityType: "blog_post", entityId: post.id, metadata: { slug: post.slug } });
   return NextResponse.json({ post });
 }

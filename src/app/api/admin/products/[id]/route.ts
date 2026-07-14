@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
 import { parsePositiveInt, readJsonBody, requireSameOrigin } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 
 const productSchema = z.object({
   slug: z.string().min(2),
@@ -69,6 +70,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .returning();
 
   if (!product) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  await writeAuditLog(session, { action: "product.update", entityType: "product", entityId: product.id, metadata: { changedFields: ["slug", "name", "brandId", "categoryId", "type", "prices", "stock", "featured"] } });
   return NextResponse.json({ product });
 }
 
@@ -82,5 +84,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!productId) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
   const [deleted] = await db.delete(products).where(eq(products.id, productId)).returning({ id: products.id });
   if (!deleted) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  await writeAuditLog(session, { action: "product.delete", entityType: "product", entityId: deleted.id });
   return NextResponse.json({ ok: true });
 }

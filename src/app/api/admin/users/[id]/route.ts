@@ -4,6 +4,7 @@ import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/requireRole";
 import { parsePositiveInt, readJsonBody, requireSameOrigin } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({
@@ -30,5 +31,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const [updated] = await db.update(users).set(update).where(eq(users.id, userId)).returning({ id: users.id });
   if (!updated) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  await writeAuditLog(session, { action: "user.access_update", entityType: "user", entityId: updated.id, metadata: { role: parsed.data.role, b2bStatus: parsed.data.b2bStatus } });
   return NextResponse.json({ ok: true });
 }

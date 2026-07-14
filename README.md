@@ -17,7 +17,7 @@
 
 - Каталог с фильтрами по типу, бренду, мощности, фазности, наличию и сортировкой.
 - Карточка товара с характеристиками, документами, отзывами и рекомендациями.
-- Корзина, сравнение до четырёх товаров и избранное в локальном браузере.
+- Корзина, сравнение до четырёх товаров и избранное; после входа корзина и избранное синхронизируются с сервером и доступны на другом устройстве.
 - Оформление заказа с серверной сверкой цены и остатка.
 - Регистрация, вход, личный кабинет и история собственных заказов.
 - Блог, калькулятор мощности, расчёт доставки, регистрация гарантии и сервисная заявка.
@@ -27,7 +27,7 @@
 - B2B-регистрация со статусами `pending`, `approved`, `rejected`.
 - Оптовые цены выдаются только пользователю с подтверждённым B2B-статусом.
 - Панель сотрудника и закрытые API для управления товарами, лидами, заказами, пользователями и статьями.
-- Ролевой доступ: `customer`, `manager`, `admin`.
+- Ролевой доступ: `customer`, `manager`, `admin`; append-only audit trail для действий сотрудников.
 
 ### Надёжность и безопасность
 
@@ -131,6 +131,9 @@ npm run dev
 | `npm run lint` | ESLint и правила React |
 | `npm run build` | Production-сборка |
 | `npm run check` | `typecheck` + `lint` + `build` |
+| `npm run test:e2e` | Playwright E2E: регистрация, корзина/checkout, staff CRUD, B2B и audit trail |
+| `npm run test:e2e:setup` | Создание изолированного admin-пользователя для E2E test DB |
+| `npm run test:e2e:install` | Установка Chromium и системных зависимостей Playwright |
 | `npm run db:generate` | Генерация Drizzle migration после изменения `src/db/schema.ts` |
 | `npm run db:migrate` | Применение миграций к БД из `DATABASE_URL` |
 | `npm run db:seed` | Demo seed через `psql` |
@@ -172,6 +175,8 @@ npm run check
 | `/api/auth/logout` | `POST` | Завершение текущей сессии. |
 | `/api/auth/me` | `GET` | Текущий пользователь без cache. |
 | `/api/orders` | `GET`, `POST` | Собственные заказы / создание заказа. |
+| `/api/cart`, `/api/cart/[productId]`, `/api/cart/sync` | `GET`, `POST`, `PUT`, `DELETE` | Server-side корзина и merge гостевой корзины после входа. |
+| `/api/favorites`, `/api/favorites/[productId]`, `/api/favorites/sync` | `GET`, `POST`, `DELETE` | Server-side избранное и merge гостевых данных после входа. |
 | `/api/leads` | `POST` | Контактная или сервисная заявка. |
 | `/api/warranty` | `POST` | Регистрация гарантии по серийному номеру. |
 | `/api/payments/config` | `GET` | Доступные для клиента онлайн-способы оплаты. |
@@ -189,6 +194,8 @@ npm run check
 | `/api/admin/leads` | Сервисные/контактные заявки. |
 | `/api/admin/users` | Пользователи, роли и B2B-статусы. |
 | `/api/admin/blog` | Статьи блога. |
+| `/api/admin/brands`, `/api/admin/categories` | CRUD справочников каталога. |
+| `/api/admin/audit` | Read-only append-only журнал действий сотрудников (admin only). |
 
 ## Онлайн-оплата YooKassa
 
@@ -276,10 +283,11 @@ drizzle/          # versioned SQL migrations и snapshots
 
 ## Roadmap
 
-- [ ] Полноценные CRUD-экраны для staff API и audit trail админ-действий.
-- [ ] Server-side избранное и синхронизация корзины между устройствами.
+- [x] Полноценные CRUD-экраны для staff API и append-only audit trail админ-действий.
+- [x] Server-side избранное и синхронизация корзины между устройствами при входе.
+- [x] E2E suite: регистрация, корзина/checkout, staff CRUD, B2B и audit trail (выполняется в CI с PostgreSQL).
 - [ ] Redis-based distributed rate limiting и background jobs.
-- [ ] E2E-тесты: регистрация, B2B-одобрение, checkout, webhook, отмена заказа.
+- [ ] E2E: YooKassa webhook, отмена/возврат заказа.
 - [ ] Реальная интеграция перевозчиков и трекинг доставки.
 - [ ] Полнотекстовый поиск PostgreSQL (`pg_trgm`) при росте каталога.
 - [ ] Настройка receipt/VAT payload YooKassa для фактической модели продаж.
