@@ -4,6 +4,7 @@ import { orders, invoices } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { parsePositiveInt, readJsonBody, requireSameOrigin } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 import { z } from "zod";
 
 const schema = z.object({ status: z.enum(["new", "paid", "processing", "shipped", "completed", "cancelled"]).optional(), invoiceStatus: z.enum(["issued", "paid", "cancelled"]).optional() }).refine((value) => value.status || value.invoiceStatus, { message: "No changes" });
@@ -21,5 +22,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (parsed.data.invoiceStatus) await tx.update(invoices).set({ status: parsed.data.invoiceStatus }).where(eq(invoices.orderId, orderId));
     return true;
   });
-  return exists ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  if (!exists) return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+  const actor = await requireStaff();
+  if (actor) await writeAuditLog(actor, { action: "order.status_update", entityType: "order", entityId: orderId, metadata: { status: parsed.data.status, invoiceStatus: parsed.data.invoiceStatus } });
+  return NextResponse.json({ ok: true });
 }

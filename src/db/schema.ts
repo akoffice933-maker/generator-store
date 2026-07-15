@@ -216,6 +216,35 @@ export const diagnosticSymptoms = pgTable("diagnostic_symptoms", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+export const cartItems = pgTable("cart_items", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  qty: integer("qty").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => ({
+  userProductIdx: uniqueIndex("cart_items_user_product_idx").on(table.userId, table.productId),
+  userUpdatedIdx: index("cart_items_user_updated_at_idx").on(table.userId, table.updatedAt),
+}));
+
+/** Append-only record of staff-side mutations. A DB trigger prevents UPDATE/DELETE. */
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  actorUserId: integer("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  actorEmail: text("actor_email"),
+  actorRole: userRoleEnum("actor_role"),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => ({
+  createdIdx: index("audit_logs_created_at_idx").on(table.createdAt),
+  actorCreatedIdx: index("audit_logs_actor_created_at_idx").on(table.actorUserId, table.createdAt),
+  entityCreatedIdx: index("audit_logs_entity_created_at_idx").on(table.entityType, table.entityId, table.createdAt),
+}));
+
 export const favorites = pgTable("favorites", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

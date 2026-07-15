@@ -10,7 +10,10 @@
     "check": "npm run typecheck && npm run lint && npm run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/seed.sql"
+    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/seed.sql",
+    "test:e2e": "playwright test",
+    "test:e2e:setup": "node scripts/e2e-setup.mjs",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -28,6 +31,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",

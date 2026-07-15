@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { requireStaff } from "@/lib/requireRole";
 import { z } from "zod";
 import { requireSameOrigin } from "@/lib/http";
+import { writeAuditLog } from "@/lib/audit";
 
 const productSchema = z.object({
   slug: z.string().min(2),
@@ -36,12 +37,21 @@ export async function GET() {
       id: products.id,
       slug: products.slug,
       name: products.name,
+      brandId: products.brandId,
+      categoryId: products.categoryId,
       type: products.type,
       powerKw: products.powerKw,
+      phases: products.phases,
+      startType: products.startType,
+      tankL: products.tankL,
+      fuelConsumption: products.fuelConsumption,
+      weightKg: products.weightKg,
+      noiseDb: products.noiseDb,
       priceRetail: products.priceRetail,
       priceWholesale: products.priceWholesale,
       stock: products.stock,
       images: products.images,
+      description: products.description,
       featured: products.featured,
       brandName: brands.name,
       categoryName: categories.name,
@@ -94,5 +104,6 @@ export async function POST(req: NextRequest) {
     })
     .returning();
 
+  await writeAuditLog(session, { action: "product.create", entityType: "product", entityId: product.id, metadata: { fields: ["slug", "name", "brandId", "categoryId", "type", "prices", "stock", "featured"] } });
   return NextResponse.json({ product });
 }
