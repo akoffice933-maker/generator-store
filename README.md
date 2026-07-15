@@ -117,6 +117,8 @@ npm run dev
 | `DATABASE_URL` | Да | PostgreSQL connection string. В production используйте отдельного пользователя с минимальными правами и TLS. |
 | `AUTH_SECRET` | Да | Случайная строка не короче 32 символов для подписи сессии. |
 | `NEXT_PUBLIC_APP_URL` | Да в production | Канонический HTTPS URL: используется для same-origin проверки и return URL оплаты. |
+| `REDIS_URL` | Да для масштабирования | Railway Redis URL для distributed rate limit и BullMQ worker. Без него используется только development fallback в памяти. |
+| `WORKER_CONCURRENCY` | Нет | Параллелизм BullMQ worker, по умолчанию `5`. |
 | `YOOKASSA_SHOP_ID` | Для card/SBP | Идентификатор магазина YooKassa. |
 | `YOOKASSA_SECRET_KEY` | Для card/SBP | Секретный ключ YooKassa. Хранить только в secret store хостинга. |
 
@@ -134,6 +136,7 @@ npm run dev
 | `npm run test:e2e` | Playwright E2E: регистрация, корзина/checkout, staff CRUD, B2B и audit trail |
 | `npm run test:e2e:setup` | Создание изолированного admin-пользователя для E2E test DB |
 | `npm run test:e2e:install` | Установка Chromium и системных зависимостей Playwright |
+| `npm run worker` | Отдельный BullMQ worker: обработка transactional outbox и повторная постановка pending jobs |
 | `npm run db:generate` | Генерация Drizzle migration после изменения `src/db/schema.ts` |
 | `npm run db:migrate` | Применение миграций к БД из `DATABASE_URL` |
 | `npm run db:seed` | Demo seed через `psql` |
@@ -231,6 +234,7 @@ npm run check
    npm run db:migrate
    ```
 5. Выполните `npm run db:seed` только для demo/staging базы.
+6. Создайте отдельный **Worker service** из этого же репозитория с start command `npm run worker`; передайте ему те же `DATABASE_URL`, `REDIS_URL` и нужные integration secrets.
 
 ### 3. Health check и мониторинг
 
@@ -240,7 +244,18 @@ npm run check
 - Sentry или аналог для client/server ошибок;
 - резервное копирование PostgreSQL и регулярную проверку восстановления;
 - внешний uptime check;
-- Redis/edge rate limiter при нескольких web-инстансах.
+- Railway Redis rate limiter и отдельный BullMQ worker при нескольких web-инстансах.
+
+## Railway Redis и background worker
+
+1. Создайте Redis service в Railway и передайте его private `REDIS_URL` web service и worker service.
+2. Web service использует Redis для атомарного distributed rate limit. Если Redis временно недоступен, приложение логирует fallback и использует локальное ограничение; настройте alert на такие события.
+3. Web/API создаёт минимальные события в PostgreSQL `background_jobs` в той же бизнес-транзакции. Это transactional outbox: события не теряются, если Redis в момент запроса недоступен.
+4. Отдельный worker (`npm run worker`) ставит pending события в BullMQ и обрабатывает повторные попытки с exponential backoff. Сейчас обработчик безопасно фиксирует события `order.created`, `lead.created`, `warranty.registered`, `payment.succeeded`; адаптеры e-mail, СДЭК и уведомлений подключаются на следующем этапе.
+
+## Поиск PostgreSQL
+
+Migration `0003_married_ego.sql` включает `pg_trgm` и GIN-индексы по `products.name` и `products.description`. Текущий `ILIKE` поиск каталога начинает использовать эти индексы на достаточно большом объёме данных. После deploy проверьте план через `EXPLAIN ANALYZE`; для очень коротких запросов PostgreSQL может осознанно выбрать seq scan.
 
 ## Production checklist
 
@@ -286,10 +301,10 @@ drizzle/          # versioned SQL migrations и snapshots
 - [x] Полноценные CRUD-экраны для staff API и append-only audit trail админ-действий.
 - [x] Server-side избранное и синхронизация корзины между устройствами при входе.
 - [x] E2E suite: регистрация, корзина/checkout, staff CRUD, B2B и audit trail (выполняется в CI с PostgreSQL).
-- [ ] Redis-based distributed rate limiting и background jobs.
+- [x] Railway Redis distributed rate limiting и transactional outbox/BullMQ worker.
+- [x] PostgreSQL `pg_trgm` GIN-индексы для поиска по каталогу.
 - [ ] E2E: YooKassa webhook, отмена/возврат заказа.
 - [ ] Реальная интеграция перевозчиков и трекинг доставки.
-- [ ] Полнотекстовый поиск PostgreSQL (`pg_trgm`) при росте каталога.
 - [ ] Настройка receipt/VAT payload YooKassa для фактической модели продаж.
 
 ## Лицензия и материалы

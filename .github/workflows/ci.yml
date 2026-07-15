@@ -32,6 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       postgres:
         image: postgres:16
         env:
@@ -48,6 +56,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/generator_store
       AUTH_SECRET: ci-only-secret-that-is-longer-than-thirty-two-characters
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      REDIS_URL: redis://127.0.0.1:6379
       CI: true
     steps:
       - uses: actions/checkout@v4
@@ -61,10 +70,13 @@ jobs:
       - run: npm run db:seed
       - run: npm run test:e2e:setup
       - run: npm run build
+      - run: nohup npm run worker > worker.log 2>&1 &
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            worker.log
           retention-days: 7

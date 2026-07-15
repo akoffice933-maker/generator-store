@@ -4,7 +4,7 @@ import type { SessionPayload } from "@/lib/auth";
 
 type AuditInput = {
   action: string;
-  entityType: "product" | "order" | "lead" | "user" | "blog_post" | "brand" | "category" | "auth";
+  entityType: "product" | "order" | "lead" | "user" | "blog_post" | "brand" | "category" | "background_job" | "auth";
   entityId: string | number;
   /** Never include password hashes, tokens, emails, phone numbers, addresses or raw request bodies. */
   metadata?: Record<string, unknown>;

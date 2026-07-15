@@ -31,6 +31,7 @@ export const invoiceStatusEnum = pgEnum("invoice_status", ["issued", "paid", "ca
 export const leadTypeEnum = pgEnum("lead_type", ["quote", "master_call", "warranty", "contact"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "in_progress", "done"]);
 export const warrantyStatusEnum = pgEnum("warranty_status", ["active", "expired"]);
+export const backgroundJobStatusEnum = pgEnum("background_job_status", ["pending", "queued", "processing", "completed", "failed"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -243,6 +244,24 @@ export const auditLogs = pgTable("audit_logs", {
   createdIdx: index("audit_logs_created_at_idx").on(table.createdAt),
   actorCreatedIdx: index("audit_logs_actor_created_at_idx").on(table.actorUserId, table.createdAt),
   entityCreatedIdx: index("audit_logs_entity_created_at_idx").on(table.entityType, table.entityId, table.createdAt),
+}));
+
+/** Transactional outbox for Redis/BullMQ background processing. */
+export const backgroundJobs = pgTable("background_jobs", {
+  id: serial("id").primaryKey(),
+  queue: text("queue").notNull().default("generator-store"),
+  name: text("name").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  status: backgroundJobStatusEnum("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  runAfter: timestamp("run_after", { mode: "date" }).notNull().defaultNow(),
+  lockedAt: timestamp("locked_at", { mode: "date" }),
+  completedAt: timestamp("completed_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+}, (table) => ({
+  statusRunAfterIdx: index("background_jobs_status_run_after_idx").on(table.status, table.runAfter),
+  createdIdx: index("background_jobs_created_at_idx").on(table.createdAt),
 }));
 
 export const favorites = pgTable("favorites", {

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { warranties, leads } from "@/db/schema";
 import { readJsonBody, requireSameOrigin } from "@/lib/http";
 import { rateLimit } from "@/lib/rateLimit";
+import { createOutboxJob, enqueueOutboxJob } from "@/lib/jobs";
 import { z } from "zod";
 
 const schema = z.object({
@@ -15,7 +16,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
-  const limited = rateLimit(req, { bucket: "warranty", limit: 3, windowMs: 24 * 60 * 60 * 1000 });
+  const limited = await rateLimit(req, { bucket: "warranty", limit: 3, windowMs: 24 * 60 * 60 * 1000 });
   if (limited) return limited;
 
   const body = await readJsonBody(req);
@@ -29,14 +30,16 @@ export async function POST(req: NextRequest) {
   expiresAt.setFullYear(expiresAt.getFullYear() + 5);
 
   try {
-    const warranty = await db.transaction(async (tx) => {
+    const { warranty, outboxJobId } = await db.transaction(async (tx) => {
       const [created] = await tx.insert(warranties).values({ serialNumber, phone, fullName, productName, activatedAt, expiresAt }).returning();
       await tx.insert(leads).values({
         type: "warranty", name: fullName, phone,
         comment: `Регистрация гарантии. Серийный номер: ${serialNumber}${productName ? `, модель: ${productName}` : ""}`,
       });
-      return created;
+      const outboxJobId = await createOutboxJob(tx, "warranty.registered", { warrantyId: created.id, serialNumber: created.serialNumber });
+      return { warranty: created, outboxJobId };
     });
+    void enqueueOutboxJob(outboxJobId);
     return NextResponse.json({ warranty }, { status: 201 });
   } catch (error) {
     if (typeof error === "object" && error && "code" in error && error.code === "23505") {
