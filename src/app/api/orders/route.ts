@@ -7,6 +7,7 @@ import { generateOrderNumber } from "@/lib/format";
 import { readJsonBody, requireSameOrigin } from "@/lib/http";
 import { rateLimit } from "@/lib/rateLimit";
 import { createOnlinePayment, onlinePaymentsEnabled } from "@/lib/yookassa";
+import { createOutboxJob, enqueueOutboxJob } from "@/lib/jobs";
 import { z } from "zod";
 
 const itemSchema = z.object({ productId: z.number().int().positive(), qty: z.number().int().min(1).max(99) });
@@ -63,7 +64,7 @@ async function cancelUnpaidOrder(orderId: number, items: { productId: number; qt
 export async function POST(req: NextRequest) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
-  const limited = rateLimit(req, { bucket: "orders", limit: 10, windowMs: 60 * 60 * 1000 });
+  const limited = await rateLimit(req, { bucket: "orders", limit: 10, windowMs: 60 * 60 * 1000 });
   if (limited) return limited;
 
   const body = await readJsonBody(req);
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const { order, invoice } = await db.transaction(async (tx) => {
+    const { order, invoice, outboxJobId } = await db.transaction(async (tx) => {
       for (const item of data.items) {
         const updated = await tx
           .update(products)
@@ -131,14 +132,24 @@ export async function POST(req: NextRequest) {
         const [createdInvoice] = await tx.insert(invoices).values({ orderId: order.id, number: `СЧ-${order.orderNumber}`, amount: total.toFixed(2), status: "issued" }).returning();
         invoice = createdInvoice;
       }
-      return { order, invoice };
+      const outboxJobId = data.paymentMethod === "invoice"
+        ? await createOutboxJob(tx, "order.created", { orderId: order.id, orderNumber: order.orderNumber })
+        : null;
+      return { order, invoice, outboxJobId };
     });
 
-    if (data.paymentMethod === "invoice") return NextResponse.json({ order, invoice }, { status: 201 });
+    if (data.paymentMethod === "invoice") {
+      if (outboxJobId) void enqueueOutboxJob(outboxJobId);
+      return NextResponse.json({ order, invoice }, { status: 201 });
+    }
 
     try {
       const payment = await createOnlinePayment({ orderId: order.id, orderNumber: order.orderNumber, amount: total, email: data.email, method: data.paymentMethod });
-      await db.update(orders).set({ paymentProvider: "yookassa", paymentId: payment.paymentId }).where(eq(orders.id, order.id));
+      const outboxJobId = await db.transaction(async (tx) => {
+        await tx.update(orders).set({ paymentProvider: "yookassa", paymentId: payment.paymentId }).where(eq(orders.id, order.id));
+        return createOutboxJob(tx, "order.created", { orderId: order.id, orderNumber: order.orderNumber });
+      });
+      void enqueueOutboxJob(outboxJobId);
       return NextResponse.json({ order, payment: { provider: "yookassa", confirmationUrl: payment.confirmationUrl } }, { status: 201 });
     } catch (error) {
       await cancelUnpaidOrder(order.id, data.items);

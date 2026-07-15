@@ -1,5 +1,5 @@
 -- Generator Store seed data
-TRUNCATE TABLE audit_logs, cart_items, favorites, order_items, invoices, orders, reviews, products, categories, brands, blog_posts, leads, warranties, diagnostic_symptoms, users RESTART IDENTITY CASCADE;
+TRUNCATE TABLE audit_logs, background_jobs, cart_items, favorites, order_items, invoices, orders, reviews, products, categories, brands, blog_posts, leads, warranties, diagnostic_symptoms, users RESTART IDENTITY CASCADE;
 
 INSERT INTO users (name, email, phone, password_hash, role, segment, company_name, inn, b2b_status) VALUES
 ('Администратор', 'admin@ita-sochi.ru', '+79180000001', '$2b$10$tfwPlPusZ8Hwmilv5vdV6.8m..rGD.fpuMGeIhEmZkhFFde5kAtpW', 'admin', 'b2c', NULL, NULL, 'none'),

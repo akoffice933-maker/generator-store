@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { invoices, orders } from "@/db/schema";
 import { getOnlinePayment } from "@/lib/yookassa";
+import { createOutboxJob, enqueueOutboxJob } from "@/lib/jobs";
 
 const notificationSchema = z.object({
   event: z.string(),
@@ -29,15 +30,16 @@ export async function POST(req: NextRequest) {
     const orderId = Number(payment.metadata?.orderId);
     if (!Number.isSafeInteger(orderId) || orderId <= 0) return NextResponse.json({ error: "Missing order metadata" }, { status: 400 });
 
-    await db.transaction(async (tx) => {
+    const outboxJobId = await db.transaction(async (tx) => {
       const [order] = await tx.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.paymentId, payment.id))).limit(1);
-      if (!order || order.status === "cancelled") return;
+      if (!order || order.status === "cancelled") return null;
       if (Number(order.totalAmount).toFixed(2) !== Number(payment.amount.value).toFixed(2)) throw new Error("PAYMENT_AMOUNT_MISMATCH");
-      if (order.status !== "paid") {
-        await tx.update(orders).set({ status: "paid", paidAt: new Date() }).where(eq(orders.id, order.id));
-        if (order.paymentMethod === "invoice") await tx.update(invoices).set({ status: "paid" }).where(eq(invoices.orderId, order.id));
-      }
+      if (order.status === "paid") return null;
+      await tx.update(orders).set({ status: "paid", paidAt: new Date() }).where(eq(orders.id, order.id));
+      if (order.paymentMethod === "invoice") await tx.update(invoices).set({ status: "paid" }).where(eq(invoices.orderId, order.id));
+      return createOutboxJob(tx, "payment.succeeded", { orderId: order.id, paymentId: payment.id });
     });
+    if (outboxJobId) void enqueueOutboxJob(outboxJobId);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

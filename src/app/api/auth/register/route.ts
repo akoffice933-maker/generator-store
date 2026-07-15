@@ -21,7 +21,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
-  const limited = rateLimit(req, { bucket: "auth-register", limit: 5, windowMs: 60 * 60 * 1000 });
+  const limited = await rateLimit(req, { bucket: "auth-register", limit: 5, windowMs: 60 * 60 * 1000 });
   if (limited) return limited;
 
   const body = await readJsonBody(req);

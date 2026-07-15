@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { readJsonBody, requireSameOrigin } from "@/lib/http";
 import { rateLimit } from "@/lib/rateLimit";
+import { createOutboxJob, enqueueOutboxJob } from "@/lib/jobs";
 import { z } from "zod";
 
 const schema = z.object({
@@ -18,7 +19,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const originError = requireSameOrigin(req);
   if (originError) return originError;
-  const limited = rateLimit(req, { bucket: "public-leads", limit: 5, windowMs: 60 * 60 * 1000 });
+  const limited = await rateLimit(req, { bucket: "public-leads", limit: 5, windowMs: 60 * 60 * 1000 });
   if (limited) return limited;
 
   const body = await readJsonBody(req);
@@ -27,6 +28,11 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Проверьте правильность заполнения формы" }, { status: 400 });
 
   const { type, name, phone, email, companyName, inn, comment } = parsed.data;
-  const [lead] = await db.insert(leads).values({ type, name, phone, email: email || null, companyName, inn, comment }).returning({ id: leads.id, createdAt: leads.createdAt });
+  const { lead, outboxJobId } = await db.transaction(async (tx) => {
+    const [lead] = await tx.insert(leads).values({ type, name, phone, email: email || null, companyName, inn, comment }).returning({ id: leads.id, createdAt: leads.createdAt });
+    const outboxJobId = await createOutboxJob(tx, "lead.created", { leadId: lead.id, type });
+    return { lead, outboxJobId };
+  });
+  void enqueueOutboxJob(outboxJobId);
   return NextResponse.json({ lead }, { status: 201 });
 }

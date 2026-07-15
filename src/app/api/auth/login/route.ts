@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Неверный e-mail или пароль" }, { status: 401 });
 
   const email = parsed.data.email.toLowerCase();
-  const limited = rateLimit(req, { bucket: "auth-login", identifier: email, limit: 10, windowMs: 15 * 60 * 1000 });
+  const limited = await rateLimit(req, { bucket: "auth-login", identifier: email, limit: 10, windowMs: 15 * 60 * 1000 });
   if (limited) return limited;
 
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
